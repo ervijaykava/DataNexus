@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Data Scientist Agent 2.0{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232a78d6'/><path d='M9 21V14M16 21V10M23 21V17' stroke='white' stroke-width='3' stroke-linecap='round'/></svg>">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="30" height="30">
+          <rect width="32" height="32" rx="8" fill="#2a78d6"/>
+          <path d="M9 21V14M16 21V10M23 21V17" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-text">Data Scientist Agent <span class="brand-version">2.0</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="/workspace">Workspace</a>
+      <a href="/models">Model library</a>
+      <a href="/history">History</a>
+      <a class="btn btn-primary btn-sm" href="/workspace">Start analysis</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <p>Data Scientist Agent 2.0 — an autonomous data science workflow built with FastAPI,
+       scikit-learn, MySQL and Gemini.</p>
+    <p class="footer-note">Results are produced automatically. Review them with someone who
+       knows the data before acting on them.</p>
+  </div>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

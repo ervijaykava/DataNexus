@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Sign in to download — Data Scientist Agent 2.0{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="wrap" style="max-width:460px;">
+
+    <div class="card">
+      <h1 style="font-size:1.5rem;">Sign in to download</h1>
+      <p class="second small">
+        The analysis and the dashboard are open to everyone — an account is only needed to take the
+        report away with you. If this email is new, the account is created as you sign in.
+      </p>
+
+      {% if error %}
+      <div class="alert alert-error">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="7.2" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M9 5.4v4.2M9 12.3v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div>{{ error }}</div>
+      </div>
+      {% endif %}
+
+      <form action="/login" method="post">
+        <input type="hidden" name="analysis_id" value="{{ analysis_id }}">
+
+        <label class="field-label" for="email">Email</label>
+        <input type="email" name="email" id="email" required autocomplete="email"
+               placeholder="you@example.com" style="margin-bottom:16px;">
+
+        <label class="field-label" for="password">Password</label>
+        <input type="password" name="password" id="password" required minlength="6"
+               autocomplete="current-password" placeholder="at least 6 characters"
+               style="margin-bottom:20px;">
+
+        <button type="submit" class="btn btn-primary btn-block">
+          Sign in and download report #{{ analysis_id }}
+        </button>
+      </form>
+
+      <p class="tiny muted" style="margin:16px 0 0;">
+        Passwords are stored as salted PBKDF2 hashes, never as plain text. There are no cookies and
+        no session — signing in produces a single one-use download link that expires in ten minutes.
+      </p>
+    </div>
+
+    <p class="center small" style="margin-top:18px;">
+      <a href="/report/{{ analysis_id }}">← Back to the report</a>
+    </p>
+
+  </div>
+</section>
+{% endblock %}

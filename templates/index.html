@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Data Scientist Agent 2.0 — Your Autonomous Data Scientist{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <span class="hero-eyebrow">
+      <span class="dot"></span>
+      {% if gemini_enabled %}Gemini reasoning active{% else %}Running on the built-in analyst{% endif %}
+    </span>
+
+    <h1>Your <span class="accent">Autonomous</span> Data Scientist</h1>
+
+    <p class="hero-lede">
+      Upload your dataset. Describe your objective in a sentence. The agent profiles the data,
+      cleans it, engineers and selects features, picks the right models, trains and compares them,
+      and then tells you honestly whether your objective was actually met.
+    </p>
+
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-lg" href="/workspace">
+        Start analysis
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <a class="btn btn-light btn-lg" href="/models">See the model library</a>
+    </div>
+
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-value">{{ model_count }}</div>
+        <div class="hero-stat-label">models in the safe library</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">14</div>
+        <div class="hero-stat-label">automated workflow steps</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">0</div>
+        <div class="hero-stat-label">lines of code you write</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">No&nbsp;login</div>
+        <div class="hero-stat-label">to run a full analysis</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ workflow -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-title">
+      <h2>What happens after you press start</h2>
+      <span class="muted">Every step runs for real — the progress screen shows the agent's actual position</span>
+    </div>
+
+    <div class="card">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-label">Upload</div>
+          <div class="flow-desc">CSV in, objective in plain English</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-label">Understand</div>
+          <div class="flow-desc">Types, gaps, duplicates, quality score</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-label">Clean</div>
+          <div class="flow-desc">Repair, normalise, drop what cannot help</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-label">Engineer</div>
+          <div class="flow-desc">Derive features, then select the useful ones</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-label">Train</div>
+          <div class="flow-desc">Only models suited to your problem type</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">6</div>
+          <div class="flow-label">Evaluate</div>
+          <div class="flow-desc">Compare on the metric that fits the goal</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">7</div>
+          <div class="flow-label">Report</div>
+          <div class="flow-desc">Dashboard plus a written report</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ features -->
+<section class="section-tight">
+  <div class="wrap">
+    <div class="grid grid-3">
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2l2.2 5.1 5.5.5-4.2 3.6 1.3 5.4L10 13.8 5.2 16.6l1.3-5.4L2.3 7.6l5.5-.5L10 2z"
+                  stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+          AI that recommends, never executes
+        </div>
+        <p class="second small">
+          Gemini reads a compact profile of your data — never the raw file — and returns a
+          structured recommendation: problem type, target column, models, metric, leakage risks.
+          Every answer is then checked against the real dataset before anything runs.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2.5" y="2.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6.5 10.5l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          A fixed, safe model library
+        </div>
+        <p class="second small">
+          The agent can only run models that are written out by hand in Python. If the AI suggests
+          something that is not in the library, or is wrong for the problem type, the suggestion is
+          rejected and the reason is shown to you.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 16.5V9M8 16.5V4M13 16.5v-5M18 16.5v-9" stroke="currentColor"
+                  stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          Leakage caught before it flatters you
+        </div>
+        <p class="second small">
+          Features that predict the answer suspiciously well are found and removed before training,
+          not after. Splitting happens before feature engineering and selection, so the reported
+          score is one you can defend.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M10 6v4.5l3 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+          Performance is not fulfilment
+        </div>
+        <p class="second small">
+          A churn model can be 94% accurate and never once predict churn. The agent scores the
+          objective separately from the model, checking absolute quality, the naive baseline, the
+          class you actually care about, and stability across folds.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M4 3.5h8l4 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-12a1 1 0 011-1z"
+                  stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M11.5 3.5V8H16" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+          A report two audiences can read
+        </div>
+        <p class="second small">
+          The executive summary avoids jargon entirely; the sections beneath it carry the full
+          metric tables, the feature decisions and the limitations. Download it when you are ready.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2.5a7.5 7.5 0 100 15 7.5 7.5 0 000-15z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M7.5 10.5l2 2 3.5-4" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          It says no when it should
+        </div>
+        <p class="second small">
+          If your objective needs clustering or forecasting, the agent explains why it will not run
+          the standard workflow instead of producing a number that looks fine and means nothing. If
+          it cannot tell which column you mean, it asks.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------------------- CTA --->
+<section class="section">
+  <div class="wrap">
+    <div class="card center" style="padding: 44px 24px;">
+      <h2 style="margin-bottom:8px;">Try it with any CSV you have</h2>
+      <p class="second" style="max-width:56ch;margin:0 auto 22px;">
+        "Predict whether a customer will churn." · "Predict house prices." ·
+        "Classify patients into risk categories." Any of these works as an objective.
+      </p>
+      <a class="btn btn-primary btn-lg" href="/workspace">Start analysis</a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

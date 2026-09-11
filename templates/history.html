@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}History — Data Scientist Agent 2.0{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="wrap">
+
+    <div class="row-between" style="margin-bottom:20px;">
+      <h1 style="margin:0;">Analysis history</h1>
+      <a class="btn btn-primary btn-sm" href="/workspace">New analysis</a>
+    </div>
+
+    {% if analyses %}
+    <div class="card card-flush">
+      <div class="table-scroll">
+        <table class="data">
+          <thead>
+            <tr><th>#</th><th>Objective</th><th>Dataset</th><th>Problem</th><th>Best model</th>
+                <th class="num">Score</th><th>Objective met</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for row in analyses %}
+            <tr>
+              <td class="muted">{{ row.id }}</td>
+              <td>{{ row.objective[:60] }}{% if row.objective|length > 60 %}…{% endif %}</td>
+              <td class="muted small">{{ row.original_filename }}</td>
+              <td class="small">{{ row.problem_type or '—' }}</td>
+              <td class="small">{{ row.best_model or '—' }}</td>
+              <td class="num">{% if row.best_score is not none %}{{ row.best_score|score }}{% else %}—{% endif %}</td>
+              <td>
+                {% if row.objective_status == 'FULFILLED' %}
+                  <span class="badge badge-good">fulfilled</span>
+                {% elif row.objective_status == 'PARTIALLY FULFILLED' %}
+                  <span class="badge badge-warning">partial</span>
+                {% elif row.objective_status == 'NOT FULFILLED' %}
+                  <span class="badge badge-critical">not met</span>
+                {% else %}—{% endif %}
+              </td>
+              <td><span class="badge badge-neutral">{{ row.status }}</span></td>
+              <td><a class="small" href="/analysis/{{ row.id }}">Open</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card empty">
+      <p>No analyses yet.</p>
+      <a class="btn btn-primary" href="/workspace">Run your first one</a>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+{% endblock %}

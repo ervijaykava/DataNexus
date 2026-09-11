@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Workspace — Data Scientist Agent 2.0{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="wrap upload-shell">
+
+    <h1>New analysis</h1>
+    <p class="second" style="margin-bottom:28px;">
+      Two inputs, no account needed. The agent takes it from there.
+    </p>
+
+    {% if error %}
+    <div class="alert alert-error">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="7.2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M9 5.4v4.2M9 12.3v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div>{{ error }}</div>
+    </div>
+    {% endif %}
+
+    <form action="/upload" method="post" enctype="multipart/form-data" id="analysis-form">
+
+      <div class="card" style="margin-bottom:20px;">
+        <label class="field-label" for="dataset">1 · Your dataset</label>
+        <p class="field-help">
+          CSV only for now, up to {{ max_mb }} MB. The file stays on this server and is never
+          uploaded anywhere else — only a small statistical profile of it is sent to the AI layer.
+        </p>
+
+        <div class="drop" id="drop-zone">
+          <input type="file" name="dataset" id="dataset" accept=".csv" required>
+          <div class="drop-icon">
+            <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+              <path d="M17 23V9m0 0l-5 5m5-5l5 5" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M5 21v4a3 3 0 003 3h18a3 3 0 003-3v-4" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="drop-title">Drop a CSV here, or click to choose one</div>
+          <div class="drop-hint">The first row should contain your column names</div>
+        </div>
+        <div class="drop-file" id="file-preview"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <label class="field-label" for="objective">2 · Your objective</label>
+        <p class="field-help">
+          Write it the way you would say it to a colleague. Naming the column you want to predict
+          helps, but the agent will work it out — and will ask you if it is not sure.
+        </p>
+        <textarea name="objective" id="objective" required
+                  placeholder="For example: Predict whether a customer will churn so we know who to call first."></textarea>
+
+        <div class="chips">
+          <span class="chip" data-fill="Predict whether a customer will churn.">Customer churn</span>
+          <span class="chip" data-fill="Predict house prices from the property details.">House prices</span>
+          <span class="chip" data-fill="Classify patients into risk categories.">Patient risk</span>
+          <span class="chip" data-fill="Find which factors most strongly influence sales.">Sales drivers</span>
+          <span class="chip" data-fill="Predict monthly revenue for each account.">Monthly revenue</span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg btn-block" id="submit-button">
+        Run the agent
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <p class="tiny muted center" style="margin-top:12px;">
+        {% if gemini_enabled %}
+          Gemini is configured. Only column names, statistics and a handful of sample rows are sent.
+        {% else %}
+          No Gemini key is configured, so the built-in rule-based analyst will do the reasoning.
+          Everything else works exactly the same.
+        {% endif %}
+      </p>
+    </form>
+
+    {% if recent %}
+    <div style="margin-top:44px;">
+      <div class="section-title">
+        <h2>Recent analyses</h2>
+        <a class="small" href="/history">View all</a>
+      </div>
+      <div class="card card-flush">
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr><th>Objective</th><th>Dataset</th><th>Status</th><th>Best model</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for row in recent %}
+              <tr>
+                <td>{{ row.objective[:70] }}{% if row.objective|length > 70 %}…{% endif %}</td>
+                <td class="muted small">{{ row.original_filename }}</td>
+                <td>
+                  {% if row.status == 'completed' %}
+                    <span class="badge badge-good">completed</span>
+                  {% elif row.status == 'failed' %}
+                    <span class="badge badge-critical">failed</span>
+                  {% elif row.status == 'needs_target' %}
+                    <span class="badge badge-warning">needs input</span>
+                  {% else %}
+                    <span class="badge badge-brand">{{ row.status }}</span>
+                  {% endif %}
+                </td>
+                <td class="small">{{ row.best_model or '—' }}</td>
+                <td><a class="small" href="/analysis/{{ row.id }}">Open</a></td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Small conveniences only: a file-name preview, the example chips, and a
+  // disabled submit button while the upload is in flight.
+  const input = document.getElementById('dataset');
+  const zone = document.getElementById('drop-zone');
+  const preview = document.getElementById('file-preview');
+
+  function showFile() {
+    const file = input.files && input.files[0];
+    if (!file) { preview.classList.remove('is-visible'); return; }
+    const size = file.size < 1048576
+      ? (file.size / 1024).toFixed(0) + ' KB'
+      : (file.size / 1048576).toFixed(1) + ' MB';
+    preview.innerHTML = '<strong>' + file.name + '</strong> <span class="muted small">· ' + size + '</span>';
+    preview.classList.add('is-visible');
+  }
+
+  input.addEventListener('change', showFile);
+
+  ['dragenter', 'dragover'].forEach(function (name) {
+    zone.addEventListener(name, function (event) {
+      event.preventDefault();
+      zone.classList.add('is-hover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (name) {
+    zone.addEventListener(name, function (event) {
+      event.preventDefault();
+      zone.classList.remove('is-hover');
+    });
+  });
+  zone.addEventListener('drop', function (event) {
+    if (event.dataTransfer.files.length) {
+      input.files = event.dataTransfer.files;
+      showFile();
+    }
+  });
+
+  document.querySelectorAll('.chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      document.getElementById('objective').value = chip.dataset.fill;
+    });
+  });
+
+  document.getElementById('analysis-form').addEventListener('submit', function () {
+    const button = document.getElementById('submit-button');
+    button.disabled = true;
+    button.innerHTML = 'Uploading and starting the agent…';
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,653 @@
+{% extends "base.html" %}
+{% block title %}Results · Analysis #{{ analysis.id }} — Data Scientist Agent 2.0{% endblock %}
+
+{% macro figure(key, alt) %}
+  {% if r.charts and r.charts.get(key) %}
+  <div class="figure"><img src="/static/charts/{{ r.charts[key] }}" alt="{{ alt }}" loading="lazy"></div>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+
+<!-- =================================================================== head -->
+<section class="dash-header">
+  <div class="wrap">
+    <div class="row-between">
+      <div>
+        <h1>Analysis #{{ analysis.id }}</h1>
+        <span class="small" style="color:rgba(255,255,255,.6)">
+          {{ dataset.original_filename }} · {{ r.profile_before.n_rows|comma }} rows ×
+          {{ r.profile_before.n_columns }} columns
+        </span>
+      </div>
+      <div class="row">
+        <a class="btn btn-light btn-sm" href="/report/{{ analysis.id }}">Read the full report</a>
+        <a class="btn btn-primary btn-sm" href="/workspace">New analysis</a>
+      </div>
+    </div>
+
+    <p class="dash-objective">{{ r.objective }}</p>
+
+    <div class="dash-meta">
+      {% if r.status == 'completed' %}
+        <span class="badge">{{ r.problem_type }}</span>
+        <span class="badge">target: {{ r.target_column }}</span>
+        <span class="badge">metric: {{ r.metric|upper }}</span>
+        <span class="badge">{{ r.model_results|length }} models evaluated</span>
+      {% else %}
+        <span class="badge">{{ r.problem_type or r.status }}</span>
+      {% endif %}
+      <span class="badge">
+        {% if r.ai_source == 'gemini' %}reasoning: Gemini{% else %}reasoning: built-in analyst{% endif %}
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------ non-modelling outcomes ------ -->
+{% if r.status in ['exploratory', 'unsupported'] %}
+<section class="section">
+  <div class="wrap">
+    <div class="alert alert-info">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="7.2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M9 8.2v4.2M9 5.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div><strong>No model was trained, and here is why.</strong><br>{{ r.explanation }}</div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<div class="anchor-nav">
+  <div class="wrap">
+    {% if r.status == 'completed' %}<a href="#verdict">Objective</a>{% endif %}
+    <a href="#data">Dataset</a>
+    <a href="#quality">Quality</a>
+    <a href="#cleaning">Cleaning</a>
+    {% if r.status == 'completed' %}
+    <a href="#features">Features</a>
+    <a href="#models">Models</a>
+    <a href="#best">Best model</a>
+    <a href="#importance">What drives it</a>
+    {% endif %}
+    <a href="#insights">Insights</a>
+  </div>
+</div>
+
+<!-- =============================================================== verdict -->
+{% if r.status == 'completed' %}
+{% set verdict = r.objective_validation %}
+<section class="wrap" id="verdict">
+  <div class="verdict verdict-{{ verdict.status.split(' ')[0] }}">
+    <h2>
+      {% if verdict.status == 'FULFILLED' %}
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="color:var(--good)">
+          <circle cx="11" cy="11" r="8.6" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M7.4 11.2l2.6 2.6 4.8-5.4" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% elif verdict.status == 'PARTIALLY FULFILLED' %}
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="color:#b57d00">
+          <circle cx="11" cy="11" r="8.6" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M11 6.6v5.2M11 15v.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      {% else %}
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="color:var(--critical)">
+          <circle cx="11" cy="11" r="8.6" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M8 8l6 6M14 8l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+      Objective {{ verdict.status|lower }}
+    </h2>
+    <p>{{ verdict.reason }}</p>
+
+    <ul class="check-list">
+      {% for check in verdict.checks %}
+      <li class="check">
+        <span class="check-mark">
+          {% if check.passed == true %}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color:var(--good)">
+              <path d="M3 8.4l3 3 6.5-7" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          {% elif check.passed == 'partial' %}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color:#b57d00">
+              <path d="M3.5 8h9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+          {% else %}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color:var(--critical)">
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          {% endif %}
+        </span>
+        <span>
+          <span class="check-name">{{ check.name }}</span><br>
+          <span class="check-detail">{{ check.detail }}</span>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- ------------------------------------------------------------- tiles -->
+  <div class="grid grid-4" style="margin-bottom:36px;">
+    <div class="tile">
+      <div class="tile-label">Best model</div>
+      <div class="tile-value small-value">{{ r.best.model_name }}</div>
+      <div class="tile-sub">of {{ r.model_results|selectattr('status','equalto','trained')|list|length }} that trained</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">{{ r.metric|upper }}</div>
+      <div class="tile-value tabular">{{ r.best.primary_score|score }}</div>
+      <div class="tile-sub">
+        {% if r.baseline_score is not none %}baseline {{ r.baseline_score|score(3) }}{% endif %}
+      </div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Data quality</div>
+      <div class="tile-value tabular">{{ r.profile_before.quality_score }}<span class="muted" style="font-size:1rem">/100</span></div>
+      <div class="tile-sub">before cleaning</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Features used</div>
+      <div class="tile-value tabular">{{ r.selection.kept|length }}</div>
+      <div class="tile-sub">{{ r.engineering.count }} engineered, {{ r.selection.removed|length }} removed</div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ============================================================== dataset -->
+<section class="wrap section-tight" id="data">
+  <div class="section-title"><h2>Dataset overview</h2></div>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="kv">
+        <div class="kv-row"><span class="kv-key">Rows</span><span class="kv-val tabular">{{ r.profile_before.n_rows|comma }}</span></div>
+        <div class="kv-row"><span class="kv-key">Columns</span><span class="kv-val tabular">{{ r.profile_before.n_columns }}</span></div>
+        <div class="kv-row"><span class="kv-key">Numeric columns</span><span class="kv-val tabular">{{ r.profile_before.numeric_columns|length }}</span></div>
+        <div class="kv-row"><span class="kv-key">Categorical columns</span><span class="kv-val tabular">{{ r.profile_before.categorical_columns|length }}</span></div>
+        <div class="kv-row"><span class="kv-key">Date columns</span><span class="kv-val tabular">{{ r.profile_before.datetime_columns|length }}</span></div>
+        <div class="kv-row"><span class="kv-key">Duplicate rows</span><span class="kv-val tabular">{{ r.profile_before.duplicate_rows|comma }}</span></div>
+        <div class="kv-row"><span class="kv-key">Missing cells</span><span class="kv-val tabular">{{ r.profile_before.total_missing_cells|comma }} ({{ r.profile_before.missing_pct }}%)</span></div>
+        <div class="kv-row"><span class="kv-key">Size in memory</span><span class="kv-val tabular">{{ r.profile_before.memory_mb }} MB</span></div>
+      </div>
+    </div>
+    {{ figure('target', 'Distribution of the target variable') }}
+    {% if not (r.charts and r.charts.get('target')) %}
+      {{ figure('correlation', 'Correlation between numeric columns') }}
+    {% endif %}
+  </div>
+
+  <div class="card card-flush" style="margin-top:20px;">
+    <div class="card-head"><h3>Columns the agent found</h3>
+      <span class="muted small">first 25 shown</span></div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th>Column</th><th>Detected as</th><th>Type</th><th class="num">Missing</th>
+              <th class="num">Unique</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          {% for column in r.profile_before.columns[:25] %}
+          <tr>
+            <td><code>{{ column.name }}</code></td>
+            <td><span class="badge badge-neutral">{{ column.kind }}</span></td>
+            <td class="muted small">{{ column.dtype }}</td>
+            <td class="num">{{ column.missing_pct }}%</td>
+            <td class="num">{{ column.unique|comma }}</td>
+            <td class="muted small">{{ column.sample_values[:3]|join(', ') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== quality -->
+<section class="wrap section-tight" id="quality">
+  <div class="section-title">
+    <h2>Data quality</h2>
+    <span class="muted">score {{ r.profile_before.quality_score }}/100</span>
+  </div>
+  <div class="grid grid-2">
+    <div class="card">
+      <ul class="bullets">
+        {% for issue in r.profile_before.quality_issues %}
+        <li>
+          <span class="badge {% if issue.severity == 'high' %}badge-critical
+            {% elif issue.severity == 'medium' %}badge-warning
+            {% elif issue.severity == 'none' %}badge-good{% else %}badge-neutral{% endif %}">
+            {{ issue.severity }}
+          </span>
+          {{ issue.message }}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {{ figure('missing', 'Missing values by column') }}
+  </div>
+</section>
+
+<!-- ============================================================= cleaning -->
+<section class="wrap section-tight" id="cleaning">
+  <div class="section-title">
+    <h2>Cleaning summary</h2>
+    <span class="muted">{{ r.cleaning.steps|length }} action(s) taken</span>
+  </div>
+
+  <div class="compare" style="margin-bottom:20px;">
+    <div class="compare-side">
+      <h4>Before cleaning</h4>
+      <div class="kv">
+        <div class="kv-row"><span class="kv-key">Rows</span><span class="kv-val tabular">{{ r.cleaning.before.rows|comma }}</span></div>
+        <div class="kv-row"><span class="kv-key">Columns</span><span class="kv-val tabular">{{ r.cleaning.before.columns }}</span></div>
+        <div class="kv-row"><span class="kv-key">Missing cells</span><span class="kv-val tabular">{{ r.cleaning.before.missing_cells|comma }}</span></div>
+        <div class="kv-row"><span class="kv-key">Duplicates</span><span class="kv-val tabular">{{ r.cleaning.before.duplicate_rows|comma }}</span></div>
+      </div>
+    </div>
+    <div class="compare-arrow">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M6 14h16M17 9l5 5-5 5" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="compare-side">
+      <h4>After cleaning</h4>
+      <div class="kv">
+        <div class="kv-row"><span class="kv-key">Rows</span><span class="kv-val tabular">{{ r.cleaning.after.rows|comma }}</span></div>
+        <div class="kv-row"><span class="kv-key">Columns</span><span class="kv-val tabular">{{ r.cleaning.after.columns }}</span></div>
+        <div class="kv-row"><span class="kv-key">Missing cells</span><span class="kv-val tabular">{{ r.cleaning.after.missing_cells|comma }}</span></div>
+        <div class="kv-row"><span class="kv-key">Duplicates</span><span class="kv-val tabular">{{ r.cleaning.after.duplicate_rows|comma }}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>What was done</h3>
+    <ul class="bullets">
+      {% for step in r.cleaning.steps %}
+      <li><strong>{{ step.action }}.</strong> {{ step.detail }}</li>
+      {% endfor %}
+      {% if not r.cleaning.steps %}
+      <li>Nothing needed fixing — the file was already clean.</li>
+      {% endif %}
+    </ul>
+    <div class="alert alert-info" style="margin:18px 0 0;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="7.2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M9 8.2v4.2M9 5.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div>{{ r.cleaning.missing_note }}</div>
+    </div>
+  </div>
+</section>
+
+{% if r.status == 'completed' %}
+
+<!-- ============================================================= features -->
+<section class="wrap section-tight" id="features">
+  <div class="section-title">
+    <h2>Problem framing and features</h2>
+    <span class="muted">split before engineering, so nothing leaks</span>
+  </div>
+
+  <div class="grid grid-2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-title">Problem type and target</div>
+      <div class="kv">
+        <div class="kv-row"><span class="kv-key">Problem type</span><span class="kv-val">{{ r.problem_type }}</span></div>
+        <div class="kv-row"><span class="kv-key">Target column</span><span class="kv-val"><code>{{ r.target_column }}</code></span></div>
+        <div class="kv-row"><span class="kv-key">Confidence</span><span class="kv-val tabular">{{ (r.target_confidence * 100)|round(0)|int }}%</span></div>
+        <div class="kv-row"><span class="kv-key">Metric</span><span class="kv-val">{{ r.metric|upper }}</span></div>
+        <div class="kv-row"><span class="kv-key">Training rows</span><span class="kv-val tabular">{{ r.train_rows|comma }}</span></div>
+        <div class="kv-row"><span class="kv-key">Test rows</span><span class="kv-val tabular">{{ r.test_rows|comma }}</span></div>
+      </div>
+      <p class="small muted" style="margin:14px 0 0;">{{ r.problem_type_reason }}</p>
+      <p class="small muted" style="margin:8px 0 0;">{{ r.metric_reason }}</p>
+      <p class="small muted" style="margin:8px 0 0;">{{ r.split_note }}</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Features kept</div>
+      <div class="pill-list" style="margin-bottom:16px;">
+        {% for feature in r.selection.kept %}<span class="pill pill-kept">{{ feature }}</span>{% endfor %}
+      </div>
+      {% if r.selection.scores %}
+      <h4 class="muted small">Strongest signal against the target</h4>
+      {% for name, value in r.selection.scores.items() %}
+        {% if loop.index <= 6 %}
+        <div style="margin-bottom:8px;">
+          <div class="row-between small"><span class="mono">{{ name }}</span><span class="tabular muted">{{ value }}</span></div>
+          <div class="meter"><div class="meter-fill" style="width: {{ (value * 100)|round(0)|int }}%"></div></div>
+        </div>
+        {% endif %}
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  {% if r.selection.leakage %}
+  <div class="alert alert-warning">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M9 2.4l7 12.2H2L9 2.4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M9 7.2v3.2M9 12.4v.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <strong>Target leakage found and removed.</strong>
+      These columns predicted the answer too well to be honest. Left in place they would have
+      produced a flattering score that collapses on real data.
+      <ul class="bullets" style="margin-top:8px;">
+        {% for item in r.selection.leakage %}
+        <li><code>{{ item.feature }}</code> — {{ item.evidence }}. {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-2">
+    <div class="card card-flush">
+      <div class="card-head"><h3>Engineered features</h3>
+        <span class="badge badge-brand">{{ r.engineering.count }}</span></div>
+      <div class="table-scroll" style="max-height:340px;overflow-y:auto;">
+        <table class="data">
+          <thead><tr><th>Feature</th><th>Type</th><th>Why</th></tr></thead>
+          <tbody>
+            {% for item in r.engineering.created %}
+            <tr><td><code>{{ item.name }}</code></td><td class="small">{{ item.type }}</td>
+                <td class="small muted">{{ item.reason }}</td></tr>
+            {% endfor %}
+            {% if not r.engineering.created %}
+            <tr><td colspan="3" class="muted small">No derived features were needed.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-flush">
+      <div class="card-head"><h3>Removed features</h3>
+        <span class="badge badge-neutral">{{ r.selection.removed|length }}</span></div>
+      <div class="table-scroll" style="max-height:340px;overflow-y:auto;">
+        <table class="data">
+          <thead><tr><th>Feature</th><th>Reason</th></tr></thead>
+          <tbody>
+            {% for item in r.selection.removed %}
+            <tr><td><code>{{ item.feature }}</code></td><td class="small muted">{{ item.reason }}</td></tr>
+            {% endfor %}
+            {% if not r.selection.removed %}
+            <tr><td colspan="2" class="muted small">Every feature earned its place.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== models -->
+<section class="wrap section-tight" id="models">
+  <div class="section-title">
+    <h2>Models trained and compared</h2>
+    <span class="muted">ranked on {{ r.metric|upper }}, not on accuracy by default</span>
+  </div>
+
+  <div class="grid grid-2" style="margin-bottom:20px;">
+    {{ figure('comparison', 'Model comparison') }}
+    <div class="card">
+      <div class="card-title">How the shortlist was chosen</div>
+      <p class="small second">
+        The AI layer suggested model names; the agent resolved each one against a fixed library of
+        hand-written models and refused anything that did not fit.
+      </p>
+      <div class="pill-list" style="margin-bottom:14px;">
+        {% for name in r.models_selected %}<span class="pill pill-kept">{{ name }}</span>{% endfor %}
+      </div>
+      {% if r.models_rejected %}
+      <h4 class="muted small">Suggestions the agent refused</h4>
+      <ul class="bullets small">
+        {% for item in r.models_rejected %}
+        <li><strong>{{ item.name }}</strong> — {{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card card-flush">
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          {% if r.problem_type == 'classification' %}
+          <tr><th>Model</th><th class="num">Accuracy</th><th class="num">Precision</th>
+              <th class="num">Recall</th><th class="num">F1</th><th class="num">ROC-AUC</th>
+              <th class="num">Time (s)</th></tr>
+          {% else %}
+          <tr><th>Model</th><th class="num">R²</th><th class="num">RMSE</th><th class="num">MAE</th>
+              <th class="num">MSE</th><th class="num">Time (s)</th></tr>
+          {% endif %}
+        </thead>
+        <tbody>
+          {% for model in r.model_results %}
+            {% if model.status == 'trained' %}
+            <tr class="{% if model.model_name == r.best.model_name %}is-best{% endif %}">
+              <td>
+                {{ model.model_name }}
+                {% if model.model_name == r.best.model_name %}<span class="badge badge-brand">best</span>{% endif %}
+                {% if model.is_baseline %}<span class="badge badge-neutral">baseline</span>{% endif %}
+              </td>
+              {% if r.problem_type == 'classification' %}
+              <td class="num">{{ model.metrics.accuracy|score }}</td>
+              <td class="num">{{ model.metrics.precision|score }}</td>
+              <td class="num">{{ model.metrics.recall|score }}</td>
+              <td class="num">{{ model.metrics.f1|score }}</td>
+              <td class="num">{{ model.metrics.roc_auc|score }}</td>
+              {% else %}
+              <td class="num">{{ model.metrics.r2|score }}</td>
+              <td class="num">{{ model.metrics.rmse|score(2) }}</td>
+              <td class="num">{{ model.metrics.mae|score(2) }}</td>
+              <td class="num">{{ model.metrics.mse|score(1) }}</td>
+              {% endif %}
+              <td class="num muted">{{ model.train_time_sec }}</td>
+            </tr>
+            {% else %}
+            <tr class="is-failed">
+              <td>{{ model.model_name }} <span class="badge badge-critical">failed</span></td>
+              <td colspan="6" class="small">{{ model.error_message }}</td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================== best model -->
+<section class="wrap section-tight" id="best">
+  <div class="section-title"><h2>The selected model</h2></div>
+
+  <div class="grid grid-2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;">
+        <h3 style="margin:0;">{{ r.best.model_name }}</h3>
+        <span class="badge badge-brand">{{ r.metric|upper }} {{ r.best.primary_score|score }}</span>
+      </div>
+      <p class="second small">{{ r.best.selection_reason }}</p>
+      <p class="muted small">{{ r.best.note }}</p>
+
+      <div class="kv" style="margin-top:12px;">
+        {% for key, value in r.best.metrics.items() %}
+          {% if value is number %}
+          <div class="kv-row">
+            <span class="kv-key">{{ key|replace('_', ' ')|title }}</span>
+            <span class="kv-val tabular">{{ value|score }}</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+        {% if r.baseline_score is not none %}
+        <div class="kv-row">
+          <span class="kv-key">Naive baseline</span>
+          <span class="kv-val tabular">{{ r.baseline_score|score }}</span>
+        </div>
+        {% endif %}
+        {% if r.cross_validation %}
+        <div class="kv-row">
+          <span class="kv-key">5-fold cross-validation</span>
+          <span class="kv-val tabular">{{ r.cross_validation.mean }} ± {{ r.cross_validation.std }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if r.problem_type == 'classification' %}
+      {{ figure('confusion', 'Confusion matrix') }}
+    {% else %}
+      {{ figure('scatter', 'Predicted against actual values') }}
+    {% endif %}
+  </div>
+
+  {% if r.problem_type == 'classification' and r.best.metrics.per_class %}
+  <div class="card card-flush">
+    <div class="card-head"><h3>Performance on each class</h3>
+      <span class="muted small">a high overall score can still hide a class the model never finds</span></div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead><tr><th>Class</th><th class="num">Rows in test set</th>
+                   <th class="num">Correctly identified</th><th>How well it is caught</th></tr></thead>
+        <tbody>
+          {% for label, info in r.best.metrics.per_class.items() %}
+          <tr>
+            <td><code>{{ label }}</code></td>
+            <td class="num">{{ info.support|comma }}</td>
+            <td class="num">{{ (info.recall * 100)|round(1) }}%</td>
+            <td style="min-width:160px;">
+              <div class="meter"><div class="meter-fill" style="width: {{ (info.recall * 100)|round(0)|int }}%"></div></div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<!-- =========================================================== importance -->
+<section class="wrap section-tight" id="importance">
+  <div class="section-title">
+    <h2>What drives the predictions</h2>
+    <span class="muted">{{ r.importance.method }}</span>
+  </div>
+  <div class="grid grid-2">
+    {{ figure('importance', 'Feature importance') }}
+    <div class="card">
+      <p class="second small">{{ r.importance.explanation }}</p>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>#</th><th>Feature</th><th class="num">Share</th></tr></thead>
+          <tbody>
+            {% for feature in r.importance.features[:10] %}
+            <tr><td class="muted">{{ loop.index }}</td><td><code>{{ feature.feature }}</code></td>
+                <td class="num">{{ feature.share }}%</td></tr>
+            {% endfor %}
+            {% if not r.importance.features %}
+            <tr><td colspan="3" class="muted small">This model does not expose feature importance.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endif %}
+
+<!-- ============================================================= insights -->
+<section class="wrap section-tight" id="insights">
+  <div class="section-title"><h2>Insights and next steps</h2></div>
+  <div class="grid grid-2">
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 2.5a5 5 0 00-3 9v2a1 1 0 001 1h4a1 1 0 001-1v-2a5 5 0 00-3-9z"
+                stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M8.2 17.5h3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        Key insights
+      </div>
+      <ul class="bullets">
+        {% for insight in r.insights %}<li>{{ insight }}</li>{% endfor %}
+        {% if not r.insights %}
+        <li class="muted">No modelling insights for this run — see the data quality section above.</li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M3.5 10h13M12 5.5l4.5 4.5-4.5 4.5" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Recommended next steps
+      </div>
+      <ol class="bullets">
+        {% for item in r.recommendations %}<li>{{ item }}</li>{% endfor %}
+        {% if not r.recommendations %}<li class="muted">Nothing further to suggest.</li>{% endif %}
+      </ol>
+    </div>
+  </div>
+
+  {% if r.recommendation and r.recommendation.reasoning %}
+  <div class="card" style="margin-top:20px;">
+    <div class="card-title">
+      {% if r.ai_source == 'gemini' %}Gemini's reasoning{% else %}The built-in analyst's reasoning{% endif %}
+    </div>
+    <p class="second">{{ r.recommendation.reasoning }}</p>
+
+    {% if r.recommendation.objective_success_criteria %}
+    <p class="small"><strong>Success criterion it set:</strong>
+       {{ r.recommendation.objective_success_criteria }}</p>
+    {% endif %}
+
+    {% if r.recommendation.corrections %}
+    <h4 class="muted small" style="margin-top:16px;">Corrections the agent applied to the AI's answer</h4>
+    <ul class="bullets small">
+      {% for correction in r.recommendation.corrections %}<li>{{ correction }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if r.warnings %}
+  <div class="card" style="margin-top:20px;">
+    <div class="card-title">Caveats from this run</div>
+    <ul class="bullets small">
+      {% for warning in r.warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if r.charts and r.charts.get('correlation') and r.status == 'completed' %}
+  <div style="margin-top:20px;">{{ figure('correlation', 'Correlation between numeric columns') }}</div>
+  {% endif %}
+</section>
+
+<!-- ================================================================== CTA -->
+<section class="wrap section-tight">
+  <div class="card center" style="padding:34px 24px;">
+    <h3>The written report goes further than this dashboard</h3>
+    <p class="second small" style="max-width:56ch;margin:0 auto 18px;">
+      Executive summary, every decision explained, the full metric tables, limitations and
+      recommended next steps — written for technical and non-technical readers at once.
+    </p>
+    <a class="btn btn-primary" href="/report/{{ analysis.id }}">Open the full report</a>
+  </div>
+</section>
+
+{% endblock %}

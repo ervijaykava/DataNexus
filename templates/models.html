@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Model library — Data Scientist Agent 2.0{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="wrap">
+
+    <h1>The safe model library</h1>
+    <p class="second" style="max-width:68ch;">
+      These are the only estimators the agent can ever run. Each one is written out by hand in
+      Python. The AI layer may suggest names, but a suggestion that is not on this list — or that
+      belongs to the wrong problem type — is rejected, and the reason is shown on your results page.
+      No code returned by the AI is ever executed.
+    </p>
+
+    <div class="section-title" style="margin-top:34px;">
+      <h2>Classification</h2>
+      <span class="muted">used when the target is a category</span>
+    </div>
+    <div class="card card-flush">
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Model</th><th>Needs scaling</th><th>What it is good for</th></tr></thead>
+          <tbody>
+            {% for model in classification %}
+            <tr>
+              <td>
+                {{ model.name }}
+                {% if model.is_baseline %}<span class="badge badge-neutral">baseline</span>{% endif %}
+              </td>
+              <td>{% if model.needs_scaling %}yes{% else %}no{% endif %}</td>
+              <td class="small second">{{ model.note }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top:34px;">
+      <h2>Regression</h2>
+      <span class="muted">used when the target is a quantity</span>
+    </div>
+    <div class="card card-flush">
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Model</th><th>Needs scaling</th><th>What it is good for</th></tr></thead>
+          <tbody>
+            {% for model in regression %}
+            <tr>
+              <td>
+                {{ model.name }}
+                {% if model.is_baseline %}<span class="badge badge-neutral">baseline</span>{% endif %}
+              </td>
+              <td>{% if model.needs_scaling %}yes{% else %}no{% endif %}</td>
+              <td class="small second">{{ model.note }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="alert alert-info" style="margin-top:28px;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="7.2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M9 8.2v4.2M9 5.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div>
+        A baseline is always trained alongside the real models. It predicts the majority class or
+        the mean value and does nothing clever at all — which is exactly the point. If a model
+        cannot beat it, the model is not adding value, however good its accuracy looks.
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Analysis #{{ analysis.id }} — Data Scientist Agent 2.0{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="wrap progress-shell">
+
+    <div class="row-between" style="margin-bottom:6px;">
+      <h1 style="margin:0;">Analysis #{{ analysis.id }}</h1>
+      <span class="badge badge-brand" id="status-badge">{{ analysis.status }}</span>
+    </div>
+    <p class="second">
+      <strong>Objective:</strong> {{ analysis.objective }}<br>
+      <span class="muted small">
+        {{ dataset.original_filename }} · {{ dataset.n_rows|comma }} rows ×
+        {{ dataset.n_columns }} columns
+      </span>
+    </p>
+
+    <!-- ------------------------------------------------ the target question -->
+    {% if analysis.status == 'needs_target' and results %}
+    <div class="card" style="margin:24px 0;">
+      <div class="card-title">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M7.8 7.6a2.2 2.2 0 114 1.2c-.7.8-1.8 1-1.8 2.2M10 14.3v.1"
+                stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        Which column should the agent predict?
+      </div>
+
+      <p class="second small">{{ results.reason }}</p>
+
+      {% if results.candidates %}
+      <div class="table-scroll" style="margin-bottom:18px;">
+        <table class="data">
+          <thead><tr><th>Column</th><th>Likely task</th><th>Why the agent considered it</th></tr></thead>
+          <tbody>
+            {% for candidate in results.candidates[:5] %}
+            <tr>
+              <td><code>{{ candidate.column }}</code></td>
+              <td class="small">{{ candidate.likely_task }}</td>
+              <td class="small muted">{{ candidate.reason }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <form action="/analysis/{{ analysis.id }}/target" method="post">
+        <label class="field-label" for="target_column">Column to predict</label>
+        <select name="target_column" id="target_column" required style="margin-bottom:14px;">
+          {% for column in results.selectable_columns %}
+          <option value="{{ column }}"
+            {% if column == results.suggested_target %}selected{% endif %}>{{ column }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary btn-block">
+          Continue with this column
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- ------------------------------------------------------------ failure -->
+    {% if analysis.status == 'failed' %}
+    <div class="alert alert-error" style="margin-top:24px;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="7.2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M9 5.4v4.2M9 12.3v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <strong>The analysis could not be completed.</strong><br>
+        {{ analysis.error_message }}
+      </div>
+    </div>
+    <a class="btn btn-ghost" href="/workspace">Try another dataset</a>
+    {% endif %}
+
+    <!-- ----------------------------------------------------------- progress -->
+    <div class="card" style="margin-top:24px;">
+      <div class="row-between">
+        <strong id="progress-title">
+          {% if analysis.status in ['queued', 'running'] %}The agent is working{% else %}Workflow{% endif %}
+        </strong>
+        <span class="muted small tabular" id="progress-percent">0%</span>
+      </div>
+
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+      <ul class="steps" id="steps">
+        {% for step in steps %}
+        <li class="step is-{{ step.status }}" data-key="{{ step.step_key }}">
+          <span class="step-icon">
+            {% if step.status == 'done' %}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 6.3l2.4 2.4 4.6-5" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            {% elif step.status == 'running' %}
+              <span class="spinner"></span>
+            {% elif step.status == 'failed' %}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            {% else %}
+              <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="2.6" fill="currentColor"/></svg>
+            {% endif %}
+          </span>
+          <span>
+            <span class="step-label">{{ step.step_label }}</span>
+            <span class="step-detail">{{ step.detail or '' }}</span>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <p class="tiny muted center" style="margin-top:14px;">
+      This page checks the agent's real position every second. You can leave it open — nothing is lost
+      if you close it, and analysis #{{ analysis.id }} stays at this address.
+    </p>
+
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Poll the backend for the agent's true position. Nothing here invents
+  // progress: every state shown comes from a row in analysis_steps.
+  const ANALYSIS_ID = {{ analysis.id }};
+  const STILL_WORKING = ['queued', 'running'];
+
+  const iconFor = {
+    done: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none">'
+        + '<path d="M2.5 6.3l2.4 2.4 4.6-5" stroke="currentColor" stroke-width="2"'
+        + ' stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    running: '<span class="spinner"></span>',
+    failed: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none">'
+          + '<path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="2"'
+          + ' stroke-linecap="round"/></svg>',
+    other: '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="2.6" fill="currentColor"/></svg>'
+  };
+
+  function render(payload) {
+    document.getElementById('progress-fill').style.width = payload.percent + '%';
+    document.getElementById('progress-percent').textContent = payload.percent + '%';
+    document.getElementById('status-badge').textContent = payload.status;
+
+    payload.steps.forEach(function (step) {
+      const node = document.querySelector('.step[data-key="' + step.key + '"]');
+      if (!node) { return; }
+      node.className = 'step is-' + step.status;
+      node.querySelector('.step-icon').innerHTML = iconFor[step.status] || iconFor.other;
+      node.querySelector('.step-detail').textContent = step.detail || '';
+    });
+  }
+
+  function poll() {
+    fetch('/analysis/' + ANALYSIS_ID + '/status')
+      .then(function (response) { return response.json(); })
+      .then(function (payload) {
+        if (payload.error) { return; }
+        render(payload);
+
+        if (payload.status === 'completed') {
+          window.location.href = '/analysis/' + ANALYSIS_ID + '/results';
+        } else if (payload.status === 'needs_target' || payload.status === 'failed') {
+          window.location.reload();
+        } else if (STILL_WORKING.indexOf(payload.status) !== -1) {
+          setTimeout(poll, 1000);
+        }
+      })
+      .catch(function () { setTimeout(poll, 3000); });
+  }
+
+  if (STILL_WORKING.indexOf('{{ analysis.status }}') !== -1) {
+    poll();
+  } else {
+    fetch('/analysis/' + ANALYSIS_ID + '/status')
+      .then(function (r) { return r.json(); })
+      .then(function (p) { if (!p.error) { render(p); } });
+  }
+</script>
+{% endblock %}
