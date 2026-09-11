@@ -27,6 +27,23 @@ from agent import models as model_library
 from agent import pipeline, profiling, report
 
 app = FastAPI(title="Data Scientist Agent 2.0")
+
+# Vercel's deployed filesystem is read-only except for /tmp.
+# Keep normal local development paths unchanged, but use writable temporary
+# directories on Vercel for uploaded datasets and generated charts.
+if os.getenv("VERCEL"):
+    RUNTIME_DIR = "/tmp/datanexus"
+    RUNTIME_UPLOAD_DIR = os.path.join(RUNTIME_DIR, "uploads")
+    RUNTIME_CHART_DIR = os.path.join(RUNTIME_DIR, "charts")
+    os.makedirs(RUNTIME_UPLOAD_DIR, exist_ok=True)
+    os.makedirs(RUNTIME_CHART_DIR, exist_ok=True)
+else:
+    RUNTIME_UPLOAD_DIR = config.UPLOAD_DIR
+    RUNTIME_CHART_DIR = config.CHART_DIR
+
+# Mount the runtime chart directory before the general /static mount so the
+# existing /static/charts/<filename> URLs continue to work on Vercel.
+app.mount("/static/charts", StaticFiles(directory=RUNTIME_CHART_DIR), name="charts")
 app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=config.TEMPLATE_DIR)
 
@@ -147,7 +164,7 @@ def upload(background_tasks: BackgroundTasks,
             f"You uploaded '{extension or 'a file with no extension'}'.", status_code=303)
 
     safe_name = f"{int(time.time())}_{secrets.token_hex(4)}{extension}"
-    stored_path = os.path.join(config.UPLOAD_DIR, safe_name)
+    stored_path = os.path.join(RUNTIME_UPLOAD_DIR, safe_name)
 
     with open(stored_path, "wb") as handle:
         shutil.copyfileobj(dataset.file, handle)
@@ -217,7 +234,7 @@ def run_analysis_task(analysis_id, forced_target):
         results = pipeline.run_analysis(
             frame, analysis["objective"], progress=progress,
             forced_target=forced_target, analysis_id=analysis_id,
-            chart_dir=config.CHART_DIR)
+            chart_dir=RUNTIME_CHART_DIR)
     except Exception as exc:                     # noqa: BLE001
         traceback.print_exc()
         db.update_analysis(analysis_id, status="failed",
