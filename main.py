@@ -48,6 +48,28 @@ app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=config.TEMPLATE_DIR)
 
 
+def _materialize_dataset(dataset):
+    """Return a readable local CSV path, restoring it from DB when needed.
+
+    Vercel instances have ephemeral /tmp storage, so a later request may land
+    on a different instance. The uploaded CSV is therefore restored from the
+    persistent MySQL blob when the original runtime path is unavailable.
+    """
+    stored_path = dataset.get("stored_path")
+    if stored_path and os.path.exists(stored_path):
+        return stored_path
+
+    file_content = dataset.get("file_content")
+    if file_content is None:
+        raise FileNotFoundError("Uploaded CSV is no longer available on this server instance.")
+
+    extension = os.path.splitext(dataset.get("original_filename") or "dataset.csv")[1].lower() or ".csv"
+    restored_path = os.path.join(RUNTIME_UPLOAD_DIR, f"dataset_{dataset['id']}{extension}")
+    with open(restored_path, "wb") as handle:
+        handle.write(file_content)
+    return restored_path
+
+
 # --------------------------------------------------------------------------
 # Template helpers
 # --------------------------------------------------------------------------
@@ -192,9 +214,12 @@ def upload(background_tasks: BackgroundTasks,
             f"needed for any meaningful analysis.", status_code=303)
 
     try:
+        with open(stored_path, "rb") as handle:
+            file_content = handle.read()
         quick_profile = profiling.profile_dataframe(frame, sample_rows=5)
         dataset_id = db.create_dataset(dataset.filename, stored_path, file_size,
-                                       frame.shape[0], frame.shape[1], quick_profile)
+                                       frame.shape[0], frame.shape[1], quick_profile,
+                                       file_content)
         analysis_id = db.create_analysis(dataset_id, objective)
         db.create_steps(analysis_id, pipeline.STEPS)
     except Exception as exc:                     # noqa: BLE001
@@ -230,7 +255,8 @@ def run_analysis_task(analysis_id, forced_target):
     db.update_analysis(analysis_id, status="running", error_message=None)
 
     try:
-        frame = pipeline.load_csv(dataset["stored_path"])
+        stored_path = _materialize_dataset(dataset)
+        frame = pipeline.load_csv(stored_path)
         results = pipeline.run_analysis(
             frame, analysis["objective"], progress=progress,
             forced_target=forced_target, analysis_id=analysis_id,
@@ -324,7 +350,8 @@ def confirm_target(background_tasks: BackgroundTasks, analysis_id: int,
     analysis = _require_analysis(analysis_id)
     dataset = db.get_dataset(analysis["dataset_id"])
 
-    frame = pipeline.load_csv(dataset["stored_path"])
+    stored_path = _materialize_dataset(dataset)
+    frame = pipeline.load_csv(stored_path)
     if target_column not in frame.columns:
         raise HTTPException(status_code=400, detail="That column is not in the dataset.")
 

@@ -5,15 +5,15 @@
 -- (The application also creates these tables automatically on startup.)
 --
 -- Design note: uploaded CSV files are kept on the server filesystem and only
--- their metadata and path are stored here. The database holds the analysis
+-- their metadata, path, and persistent file content are stored here. The database holds the analysis
 -- trail - what the agent decided and why - not the raw data.
 -- =========================================================================
 
-CREATE DATABASE IF NOT EXISTS data_scientist_agent
+CREATE DATABASE IF NOT EXISTS defaultdb
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE data_scientist_agent;
+USE defaultdb;
 
 
 -- Accounts are only needed to download a report. Analysis itself is public.
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS datasets (
     n_rows            INT NOT NULL DEFAULT 0,
     n_columns         INT NOT NULL DEFAULT 0,
     profile_json      LONGTEXT,
+    file_content      LONGBLOB,
     uploaded_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 

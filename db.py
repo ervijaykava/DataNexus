@@ -112,14 +112,15 @@ def check_connection():
 # Datasets
 # --------------------------------------------------------------------------
 
-def create_dataset(original_filename, stored_path, file_size, n_rows, n_columns, profile):
+def create_dataset(original_filename, stored_path, file_size, n_rows, n_columns, profile, file_content):
     return run(
         """
         INSERT INTO datasets
-            (original_filename, stored_path, file_size_bytes, n_rows, n_columns, profile_json)
-        VALUES (%s, %s, %s, %s, %s, %s)
+            (original_filename, stored_path, file_size_bytes, n_rows, n_columns, profile_json, file_content)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
-        (original_filename, stored_path, file_size, n_rows, n_columns, json.dumps(profile, default=str)),
+        (original_filename, stored_path, file_size, n_rows, n_columns,
+         json.dumps(profile, default=str), file_content),
     )
 
 
